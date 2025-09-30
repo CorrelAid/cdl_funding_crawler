@@ -10,3 +10,5 @@ logs/*
 .env
 
 errors/*
+
+overview_cache/
