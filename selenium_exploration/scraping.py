@@ -1,7 +1,7 @@
-import json
 import random
 import time
 from pathlib import Path
+import pickle
 
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
@@ -62,16 +62,19 @@ class SeleniumScraper:
                     .find_element(By.CLASS_NAME, "btn--label")
                     .text
                 )
-                filter_data[current_filter_name] = {}
+
+                filter_data[current_filter_name] = []
                 filters = filter_category.find_elements(By.CLASS_NAME, "sidebar--li")
                 for curr_filter in filters:
-                    filter_data[current_filter_name][curr_filter] = (
-                        curr_filter.find_element(
-                            By.CLASS_NAME, "link--label"
-                        ).get_attribute("innerHTML"),
-                        curr_filter.find_element(
-                            By.CLASS_NAME, "link--count"
-                        ).get_attribute("innerHTML"),
+                    filter_data[current_filter_name].append(
+                        (
+                            curr_filter.find_element(
+                                By.CLASS_NAME, "link--label"
+                            ).get_attribute("innerHTML"),
+                            curr_filter.find_element(
+                                By.CLASS_NAME, "link--count"
+                            ).get_attribute("innerHTML"),
+                        )
                     )
             page_data["curr_filter"] = filter_data
 
@@ -114,14 +117,17 @@ if __name__ == "__main__":
 
     scraper = SeleniumScraper(driver)
 
-    results = {page: [] for page in range(254)}
+    results = {page: [] for page in range(1, 254)}
 
-    for _ in range(5):
+    for run_idx in range(5):
         pages = list(range(1, 254))
         random.shuffle(pages)
         for page_number in pages:
             results[page_number].append(scraper.read_page(page_number))
             scraper.jitter_time_out()
 
-    with (Path(__file__) / "data.json").open("w") as fp:
-        json.dump(results, fp)
+        with (Path(__file__).parent / f"data_{run_idx}.pkl").open("wb") as fp:
+            pickle.dump(results, fp)
+
+    with (Path(__file__).parent / "data.pkl").open("wb") as fp:
+        pickle.dump(results, fp)
