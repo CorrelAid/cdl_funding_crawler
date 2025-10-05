@@ -47,6 +47,9 @@ class SeleniumScraper:
         if not self.cookies_accepted:
             self.accept_cookies()
 
+        # Just to load the page count (very dynamic)
+        time.sleep(3)
+
         try:
             count = self.driver.find_element(By.ID, "hits--count").text
             page_data["count"] = count
@@ -79,16 +82,16 @@ class SeleniumScraper:
             page_data["curr_filter"] = filter_data
 
             urls = []
-            search_results = self.driver.find_elements(By.CLASS_NAME, "searchresult")
+            search_result_container = self.driver.find_element(
+                By.CLASS_NAME, "searchresult"
+            )
+            search_results = search_result_container.find_elements(
+                By.CLASS_NAME, "card"
+            )
             for result in search_results:
-                result.find_element(By.CLASS_NAME, "card--title").find_element(
-                    By.TAG_NAME, "a"
-                )
+                card_title = result.find_element(By.CLASS_NAME, "card--title")
                 urls.append(
-                    search_results[0]
-                    .find_element(By.CLASS_NAME, "card--title")
-                    .find_element(By.TAG_NAME, "a")
-                    .get_attribute("href")
+                    card_title.find_element(By.TAG_NAME, "a").get_attribute("href")
                 )
             page_data["urls"] = urls
 
