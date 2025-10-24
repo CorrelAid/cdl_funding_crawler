@@ -1,7 +1,7 @@
-import random
 import time
 from pathlib import Path
 import pickle
+import random
 
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
@@ -17,12 +17,12 @@ class SeleniumScraper:
     @staticmethod
     def get_url(page_number: int):
         return (
-            f"https://www.foerderdatenbank.de/"
-            f"SiteGlobals/FDB/Forms/Suche/"
-            f"Startseitensuche_Formular.html?"
-            f"gtp=%2526816beae2-d57e-4bdc-b55d-392bc1e17027_list%253D{page_number}"
+            f"https://www.foerderdatenbank.de/SiteGlobals/FDB/Forms/Suche/Foederprogrammsuche_Formular.html?"
+            f"input_=23adddb0-dcf7-4e32-96f5-93aec5db2716&gtp=%2526816beae2-d57e-4bdc-b55d-392bc1e17027_list%253D{page_number}"
             f"&submit=Suchen"
+            f"&resourceId=0065e6ec-5c0a-4678-b503-b7e7ec435dfd"
             f"&filterCategories=FundingProgram"
+            f"&pageLocale=de"
         )
 
     @staticmethod
@@ -82,6 +82,7 @@ class SeleniumScraper:
             page_data["curr_filter"] = filter_data
 
             urls = []
+            titles = []
             search_result_container = self.driver.find_element(
                 By.CLASS_NAME, "searchresult"
             )
@@ -93,7 +94,11 @@ class SeleniumScraper:
                 urls.append(
                     card_title.find_element(By.TAG_NAME, "a").get_attribute("href")
                 )
+                titles.append(
+                    card_title.find_element(By.CLASS_NAME, "link--label").text
+                )
             page_data["urls"] = urls
+            page_data["titles"] = titles
 
             pagination = self.driver.find_element(By.CLASS_NAME, "pagination")
             final_page = (
@@ -115,22 +120,33 @@ class SeleniumScraper:
 
 
 if __name__ == "__main__":
-    chrome_service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=chrome_service)
+    results = {}
+    num_runs = 10
+    num_pages = 254
+    for browser, browser_manager in [(webdriver.Chrome, ChromeDriverManager)]:
+        browser_text = str(browser)
+        browser_service = Service(browser_manager().install())
+        driver = browser(service=browser_service)
 
-    scraper = SeleniumScraper(driver)
+        scraper = SeleniumScraper(driver)
 
-    results = {page: [] for page in range(1, 254)}
+        results[browser_text] = {page: [] for page in range(1, num_pages)}
+        results[browser_text]["page_orders"] = []
 
-    for run_idx in range(5):
-        pages = list(range(1, 254))
-        random.shuffle(pages)
-        for page_number in pages:
-            results[page_number].append(scraper.read_page(page_number))
-            scraper.jitter_time_out()
+        for run_idx in range(num_runs):
+            pages = list(range(1, num_pages))
+            if run_idx != num_runs - 1:
+                random.shuffle(pages)
+            results[browser_text]["page_orders"].append(pages)
 
-        with (Path(__file__).parent / f"data_{run_idx}.pkl").open("wb") as fp:
-            pickle.dump(results, fp)
+            for page_number in pages:
+                results[browser_text][page_number].append(
+                    scraper.read_page(page_number)
+                )
+                scraper.jitter_time_out()
+
+            with (Path(__file__).parent / f"data_{run_idx}.pkl").open("wb") as fp:
+                pickle.dump(results, fp)
 
     with (Path(__file__).parent / "data.pkl").open("wb") as fp:
         pickle.dump(results, fp)
